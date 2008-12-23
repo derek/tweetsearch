@@ -1,0 +1,28 @@
+Tweet Search
+============
+Usage:
+	tweet_search [options]
+
+Options:
+    -q, --query   	: Your query (i.e. -q 'happy hour')
+    -s, --service 	: Search a specific service (i.e. -s 'twitter')
+    -l, --lastid	: Minimum tweet id to include in search
+    -v, --verbose 	: Detailed output of what is going on
+    -i, --interactive 	: Run in interactive mode
+	-c, --count		: The max # of tweets to search per service
+    -f, --format  	: Format to display each result (i.e. -f '%s/%u: %t [%a ago]')
+        %s : service hostname
+        %u : username
+        %t : tweet
+        %a : age of tweet
+        %k : timestamp
+        %i : tweet id
+
+Examples:
+    - You can cron this to have an IM sent to you for every result
+        tweet_search -q @derek -f '[%q] #%i %u: %t (%a ago)' | while read a; do echo $a | /home/derek/jab drgath@gmail.com; done
+	- Find the people who have said "@derek" most
+	    tweet_search -q @derek -l 0 -f %u -c 100 | sort | uniq -c | sort -n
+Authors:
+	Derek Gathright (drgath@gmail.com)
+
