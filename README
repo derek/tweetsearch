@@ -1,7 +1,7 @@
-Tweet Search
+TweetSearch
 ============
 Usage:
-	tweet_search [options]
+	tweetsearch [options]
 
 Options:
     -q, --query   	: Your query (i.e. -q 'happy hour')
@@ -11,20 +11,27 @@ Options:
     -i, --interactive 	: Run in interactive mode
 	-c, --count		: The max # of tweets to search per service
     -f, --format  	: Format to display each result (i.e. -f '%s/%u: %t [%a ago]')
-        %s : service hostname
-        %u : username
-        %t : tweet
-        %a : age of tweet
-        %k : timestamp
-        %i : tweet id
+        #s : service hostname
+        #u : username
+        #t : tweet
+        #a : age of tweet
+        #k : timestamp
+        #i : tweet id
+
+Requirements:
+	- PHP
+	- SQLite (to save search history)
+
+Installation:
+	- None.  Just run the script.
 
 Examples:
 	- You can cron this to a Twitter DM sent to you for every result
-		tweetsearch -q @derek  -f "[#u] #t" | while read a; do /usr/bin/curl -d "user=derek&text=$a" http://twitter.com/direct_messages/new.xml -u "tweenky:somepass"; done
+		./tweetsearch -q @derek  -f "[#u] #t" | while read a; do /usr/bin/curl -d "user=derek&text=$a" http://twitter.com/direct_messages/new.xml -u "tweenky:somepass"; done
 	- Cron this to have an IM sent to you for every result
-		tweetsearch -q @derek  -f "[#u] #t" | while read a; do /home/derek/jab drgath@gmail.com; done
+		./tweetsearch -q @derek  -f "[#u] #t" | while read a; do /home/derek/jab drgath@gmail.com; done
 	- Find the people who have said "@derek" most
-		tweetsearch -q @derek -l 0 -f %u -c 100 | sort | uniq -c | sort -n
+		./tweetsearch -q @derek -l 0 -f %u -c 100 | sort | uniq -c | sort -n
 
 Authors:
 		Derek Gathright (drgath@gmail.com)
