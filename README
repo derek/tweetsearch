@@ -19,10 +19,13 @@ Options:
         %i : tweet id
 
 Examples:
-    - You can cron this to have an IM sent to you for every result
-        tweet_search -q @derek -f '[%q] #%i %u: %t (%a ago)' | while read a; do echo $a | /home/derek/jab drgath@gmail.com; done
+	- You can cron this to a Twitter DM sent to you for every result
+		tweetsearch -q @derek  -f "[#u] #t" | while read a; do /usr/bin/curl -d "user=derek&text=$a" http://twitter.com/direct_messages/new.xml -u "tweenky:somepass"; done
+	- Cron this to have an IM sent to you for every result
+		tweetsearch -q @derek  -f "[#u] #t" | while read a; do /home/derek/jab drgath@gmail.com; done
 	- Find the people who have said "@derek" most
-	    tweet_search -q @derek -l 0 -f %u -c 100 | sort | uniq -c | sort -n
+		tweetsearch -q @derek -l 0 -f %u -c 100 | sort | uniq -c | sort -n
+
 Authors:
-	Derek Gathright (drgath@gmail.com)
+		Derek Gathright (drgath@gmail.com)
 
