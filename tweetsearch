@@ -1,0 +1,268 @@
+#!/usr/bin/php
+<?
+	// Create some globals
+	global $args;
+	global $config;
+	
+	
+	// Determine where we are
+	$base_path 	= realpath(dirname($_SERVER['SCRIPT_FILENAME']));
+	
+	
+	// Parse the config file & set any defaults that need to be set.
+	$config 	= parse_ini_file($base_path . "/tweetsearch.conf");
+	if (empty($config['database_path'])) $config['database_path'] = $base_path."/tweetsearch.db";
+	
+	
+	// Parse the CLI input
+	$args = parseOptions($_SERVER['argv']);
+	
+	
+	// Remap any short-arguements
+	if (isset($args['h'])) $args['help'] 		= $args['h'];
+	if (isset($args['s'])) $args['service'] 	= $args['s'];
+	if (isset($args['q'])) $args['query'] 		= $args['q'];
+	if (isset($args['f'])) $args['format'] 		= $args['f'];
+	if (isset($args['l'])) $args['lastid'] 		= $args['l'];
+	if (isset($args['v'])) $args['verbose'] 	= $args['v'];
+	if (isset($args['i'])) $args['interactive'] = $args['i'];
+	if (isset($args['c'])) $args['count'] 		= $args['c'];
+
+	verbose("\n");
+	
+	// End if the program recieved no options
+	if (empty($args))
+	{
+		die("No options specified.\nTry '".str_replace($base_path.'/', '', __FILE__)." --help' for more information.\n\n");
+	}
+
+	// Get the search query
+	interactive("Enter your search query", $args['query'][0]);
+	$search_query = implode(" ", $args['query']);
+	
+	if ($db = new SQLiteDatabase($config['database_path'])) {
+	    $q = $db->query("SELECT * FROM queries LIMIT 1");
+	    if ($q === false) {
+	        $db->queryExec('CREATE TABLE queries (query_id INTEGER AUTOINCREMENT, query TEXT, last_id INT, PRIMARY KEY(query_id));');
+	    }
+	} else {
+	    die($err);
+	}
+
+	// Display the README
+	if (isset($args['help']))
+	{
+		die(file_get_contents($base_path.'/README'));
+	}
+	
+	// Apparently we have no search query
+	if (empty($search_query))
+	{
+		echo("No query specified. Quitting ");
+		die("\n\n");
+	}
+
+	// Ensure that a service specified is valid
+	if (isset($args['service'][0]) && !in_array($args['service'][0], array('twitter')))
+	{
+		echo("Missing valid parameter '-s' (service; ex. 'twitter')");
+		die("\n\n");
+	}
+	
+	// Do something with the format they passed in, or set it to a default.
+	if (isset($args['format'][0]))
+	{
+		switch($args['format'][0])
+		{
+			case 'curl_post':
+				$format = '-d "user=derek&text=[%u] %t"';
+				break;
+			
+			default:
+				$format = $args['format'][0];
+				break;
+		}
+	}
+	else
+	{
+		$format = $config['default_tweet_format'];
+	}
+
+	// Set the last_id to a value pass in or a default
+	if (isset($args['lastid'][0]))
+	{
+		$last_id = $args['lastid'][0];
+	}
+	else
+	{
+		$q = $db->query("SELECT last_id FROM queries WHERE query = '{$search_query}'");
+		$last_id = $q->fetchSingle();
+		if (empty($last_id))
+			$last_id = 0;
+	
+		interactive("Minimum id to include", $last_id, $last_id);
+	}
+
+	// Set the count to a value passed in or a default
+	if (isset($args['count'][0]))
+	{
+		if ($args['count'][0] > 100)
+		{
+			verbose("\nVERBOSE: Count greater than 100 specified.  Defaulting to 100.");
+			$tweet_count = '100';
+		}
+		else
+		{
+			$tweet_count = $args['count'][0];
+		}
+	}
+	else
+	{
+		$tweet_count = '20';
+	}
+
+
+	// Execute the searches
+	$url = "http://search.twitter.com/search.json?q={$search_query}&since_id={$last_id}&rpp={$tweet_count}";
+	verbose("\nVERBOSE: Grabbing data Twitter for '{$search_query}' at {$url}");
+	$data = json_decode(file_get_contents($url), true);
+	verbose("... ".count($data['results']) . " items returned\n");
+
+	// Update the DB to remember the last tweet found
+	$db->queryExec("DELETE FROM queries WHERE query = '{$search_query}'");
+	$db->queryExec("INSERT INTO queries (query, last_id) VALUES ('{$search_query}', '{$data['max_id']}')");
+
+	if (empty($data["results"]))
+	{
+		//echo "No tweets found";
+	}
+	else
+	{
+		$data["results"] = array_reverse($data["results"]);
+		foreach($data["results"] as $tweet)
+		{
+			$msg = $format;
+			$msg = str_replace("%q", $search_query, 	$msg);
+			$msg = str_replace("%s", "twitter.com", 		$msg);
+			$msg = str_replace("%u", $tweet["from_user"], 	$msg);
+			$msg = str_replace("%k", $tweet["created_at"], 	$msg);
+			$msg = str_replace("%t", $tweet["text"], 		$msg);
+			$msg = str_replace("%i", $tweet["id"], 			$msg);
+			$msg = str_replace("%a", time_since(strtotime($tweet["created_at"])), $msg);
+		
+			echo "{$msg}\n";
+		}
+	}
+
+	verbose("\n\n");
+
+
+// THE END =======================
+
+
+
+
+
+
+
+
+
+
+
+function interactive($question, &$var, $default = null)
+{
+	if (isset($GLOBALS['args']['interactive']))
+	{
+		echo $question. " [{$default}]: ";
+		
+	 	$input = trim( fgets( STDIN ) );
+	
+		if (strlen($input) < 1)
+			$var = $default;
+		else
+			$var = $input;
+	}
+}
+
+function verbose($msg)
+{
+	if (isset($GLOBALS['args']['verbose']))
+	{
+		echo $msg;	
+	}
+}
+
+function parseOptions($array)
+{
+	$len=sizeof($array);
+	$currentName="";
+	$options=array();
+
+	for ($i = 1; $i < $len; $i++)
+	{
+		$name=$array[$i];
+	
+		if(strpos($name,"-")===0)
+		{
+			//is option
+			$name=str_replace("-","",$name);   
+			$currentName=$name;
+			if($options[$currentName]==NULL)
+			{
+				$options[$currentName]=array();  
+			}
+		}
+		else
+		{
+			$values=$options[$currentName];
+			array_push($values,$name);
+			$values = str_replace("\-", "-", $values);
+			$options[$currentName]=$values;
+		}
+	}
+	return $options;
+}
+
+/* Works out the time since the entry post, takes a an argument in unix time (seconds) */
+function time_since($original) {
+    // array of time period chunks
+    $chunks = array(
+        array(60 * 60 * 24 * 365 , 'year'),
+        array(60 * 60 * 24 * 30 , 'month'),
+        array(60 * 60 * 24 * 7, 'week'),
+        array(60 * 60 * 24 , 'day'),
+        array(60 * 60 , 'hour'),
+        array(60 , 'minute'),
+    );
+    
+    $today = time(); /* Current unix time  */
+    $since = $today - $original;
+    
+    // $j saves performing the count function each time around the loop
+    for ($i = 0, $j = count($chunks); $i < $j; $i++) {
+        
+        $seconds = $chunks[$i][0];
+        $name = $chunks[$i][1];
+        
+        // finding the biggest chunk (if the chunk fits, break)
+        if (($count = floor($since / $seconds)) != 0) {
+            // DEBUG print "<!-- It's $name -->\n";
+            break;
+        }
+    }
+    
+    $print = ($count == 1) ? '1 '.$name : "$count {$name}s";
+    
+    if ($i + 1 < $j) {
+        // now getting the second item
+        $seconds2 = $chunks[$i + 1][0];
+        $name2 = $chunks[$i + 1][1];
+        
+        // add second item if it's greater than 0
+        if (($count2 = floor(($since - ($seconds * $count)) / $seconds2)) != 0) {
+            $print .= ($count2 == 1) ? ', 1 '.$name2 : ", $count2 {$name2}s";
+        }
+    }
+    return $print;
+}
+?>
