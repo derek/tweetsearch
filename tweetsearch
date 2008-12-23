@@ -75,7 +75,7 @@
 		switch($args['format'][0])
 		{
 			case 'curl_post':
-				$format = '-d "user=derek&text=[%u] %t"';
+				$format = '-d "user=derek&text=[#u] #t"';
 				break;
 			
 			default:
@@ -142,13 +142,13 @@
 		foreach($data["results"] as $tweet)
 		{
 			$msg = $format;
-			$msg = str_replace("%q", $search_query, 	$msg);
-			$msg = str_replace("%s", "twitter.com", 		$msg);
-			$msg = str_replace("%u", $tweet["from_user"], 	$msg);
-			$msg = str_replace("%k", $tweet["created_at"], 	$msg);
-			$msg = str_replace("%t", $tweet["text"], 		$msg);
-			$msg = str_replace("%i", $tweet["id"], 			$msg);
-			$msg = str_replace("%a", time_since(strtotime($tweet["created_at"])), $msg);
+			$msg = str_replace("#q", $search_query, 	$msg);
+			$msg = str_replace("#s", "twitter.com", 		$msg);
+			$msg = str_replace("#u", $tweet["from_user"], 	$msg);
+			$msg = str_replace("#k", $tweet["created_at"], 	$msg);
+			$msg = str_replace("#t", $tweet["text"], 		$msg);
+			$msg = str_replace("#i", $tweet["id"], 			$msg);
+			$msg = str_replace("#a", time_since(strtotime($tweet["created_at"])), $msg);
 		
 			echo "{$msg}\n";
 		}
