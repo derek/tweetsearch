@@ -5,7 +5,6 @@ Usage:
 
 Options:
     -q, --query   	: Your query (i.e. -q 'happy hour')
-    -s, --service 	: Search a specific service (i.e. -s 'twitter')
     -l, --lastid	: Minimum tweet id to include in search
     -v, --verbose 	: Detailed output of what is going on
     -i, --interactive 	: Run in interactive mode
@@ -17,6 +16,8 @@ Options:
         #a : age of tweet
         #k : timestamp
         #i : tweet id
+
+	--urlencode 	: makes the output safe for URLs
 
 Requirements:
 	- PHP

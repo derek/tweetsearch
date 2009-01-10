@@ -1,17 +1,14 @@
 #!/usr/bin/php
 <?
+	error_reporting(0);
+	
 	// Create some globals
 	global $args;
 	global $config;
 	
-	
-	// Determine where we are
-	$base_path 	= realpath(dirname($_SERVER['SCRIPT_FILENAME']));
-	
-	
 	// Parse the config file & set any defaults that need to be set.
-	$config 	= parse_ini_file($base_path . "/tweetsearch.conf");
-	if (empty($config['database_path'])) $config['database_path'] = $base_path."/tweetsearch.db";
+	$config 	= parse_ini_file("/etc/tweetsearch/tweetsearch.conf");
+	if (empty($config['database_path'])) $config['database_path'] = "/home/derek/.tweetsearch.db";
 	
 	
 	// Parse the CLI input
@@ -20,7 +17,6 @@
 	
 	// Remap any short-arguements
 	if (isset($args['h'])) $args['help'] 		= $args['h'];
-	if (isset($args['s'])) $args['service'] 	= $args['s'];
 	if (isset($args['q'])) $args['query'] 		= $args['q'];
 	if (isset($args['f'])) $args['format'] 		= $args['f'];
 	if (isset($args['l'])) $args['lastid'] 		= $args['l'];
@@ -33,26 +29,29 @@
 	// End if the program recieved no options
 	if (empty($args))
 	{
-		die("No options specified.\nTry '".str_replace($base_path.'/', '', __FILE__)." --help' for more information.\n\n");
+		die("No options specified.\nTry 'tweetsearch --help' for more information.\n\n");
 	}
 
 	// Get the search query
 	interactive("Enter your search query", $args['query'][0]);
 	$search_query = implode(" ", $args['query']);
 	
-	if ($db = new SQLiteDatabase($config['database_path'])) {
-	    $q = $db->query("SELECT * FROM queries LIMIT 1");
-	    if ($q === false) {
-	        $db->queryExec('CREATE TABLE queries (query_id INTEGER AUTOINCREMENT, query TEXT, last_id INT, PRIMARY KEY(query_id));');
-	    }
-	} else {
-	    die($err);
+	if ($config['storage'])
+	{
+		if ($db = new SQLiteDatabase($config['database_path'])) {
+		    $q = $db->query("SELECT * FROM queries LIMIT 1");
+		    if ($q === false) {
+		        $db->queryExec('CREATE TABLE queries (query_id INTEGER AUTOINCREMENT, query TEXT, last_id INT, PRIMARY KEY(query_id));');
+		    }
+		} else {
+		    die($err);
+		}
 	}
 
 	// Display the README
 	if (isset($args['help']))
 	{
-		die(file_get_contents($base_path.'/README'));
+		die(file_get_contents('/home/derek/Projects/tweetsearch/README'));
 	}
 	
 	// Apparently we have no search query
@@ -95,8 +94,12 @@
 	}
 	else
 	{
-		$q = $db->query("SELECT last_id FROM queries WHERE query = '{$search_query}'");
-		$last_id = $q->fetchSingle();
+		if ($config['storage'])
+		{
+			$q = $db->query("SELECT last_id FROM queries WHERE query = '{$search_query}'");
+			$last_id = $q->fetchSingle();
+		}
+		
 		if (empty($last_id))
 			$last_id = 0;
 	
@@ -128,13 +131,16 @@
 	$data = json_decode(file_get_contents($url), true);
 	verbose("... ".count($data['results']) . " items returned\n");
 
-	// Update the DB to remember the last tweet found
-	$db->queryExec("DELETE FROM queries WHERE query = '{$search_query}'");
-	$db->queryExec("INSERT INTO queries (query, last_id) VALUES ('{$search_query}', '{$data['max_id']}')");
+	if ($config['storage'])
+	{
+		// Update the DB to remember the last tweet found
+		$db->queryExec("DELETE FROM queries WHERE query = '{$search_query}'");
+		$db->queryExec("INSERT INTO queries (query, last_id) VALUES ('{$search_query}', '{$data['max_id']}')");
+	}
 
 	if (empty($data["results"]))
 	{
-		//echo "No tweets found";
+		echo "No tweets found";
 	}
 	else
 	{
@@ -149,7 +155,12 @@
 			$msg = str_replace("#t", $tweet["text"], 		$msg);
 			$msg = str_replace("#i", $tweet["id"], 			$msg);
 			$msg = str_replace("#a", time_since(strtotime($tweet["created_at"])), $msg);
-		
+			
+			if(isset($args['urlencode']))
+			{
+				$msg = urlencode($msg);
+			}
+			
 			echo "{$msg}\n";
 		}
 	}
